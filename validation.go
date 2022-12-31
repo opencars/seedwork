@@ -3,7 +3,6 @@ package seedwork
 import (
 	"fmt"
 	"strings"
-	"unicode"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
@@ -48,14 +47,51 @@ func ErrorMessages(prefix string, err error) map[string][]string {
 }
 
 func ToSnakeCase(str string) string {
-	var res = make([]rune, 0, len(str))
-	for i, r := range str {
-		if unicode.IsUpper(r) && i > 0 && (i+1 != len(str) && unicode.IsLower(rune(str[i+1]))) {
-			res = append(res, '_', unicode.ToLower(r))
+	return ToScreamingDelimited(str, '_')
+}
+
+func ToScreamingDelimited(s string, delimiter uint8) string {
+	s = strings.TrimSpace(s)
+
+	n := strings.Builder{}
+	n.Grow(len(s) + 2) // nominal 2 bytes of extra space for inserted delimiters
+
+	if len(s) != 0 {
+		currIsCap := s[0] >= 'A' && s[0] <= 'Z'
+
+		if currIsCap {
+			n.WriteByte(s[0] - 'A' + 'a')
 		} else {
-			res = append(res, unicode.ToLower(r))
+			n.WriteByte(s[0])
 		}
 	}
 
-	return strings.ToLower(string(res))
+	for i := 1; i < len(s); i++ {
+		prevIsCap := s[i] >= 'A' && s[i] <= 'Z'
+		prevIsLow := s[i-1] >= 'a' && s[i-1] <= 'z'
+
+		currIsCap := s[i] >= 'A' && s[i] <= 'Z'
+
+		hasNext := len(s) > i+1
+		var nextIsLow bool
+		var next byte
+		if hasNext {
+			next = s[i+1]
+			nextIsLow = s[i+1] >= 'a' && s[i+1] <= 'z'
+		}
+
+		if prevIsLow && currIsCap {
+			n.WriteByte(delimiter)
+		} else if currIsCap && prevIsCap && hasNext && nextIsLow && next != 's' {
+			n.WriteByte(delimiter)
+		}
+
+		if currIsCap {
+			n.WriteByte(s[i] - 'A' + 'a')
+		} else {
+			n.WriteByte(s[i])
+		}
+	}
+
+	return n.String()
 }
